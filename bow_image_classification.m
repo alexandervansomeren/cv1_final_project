@@ -3,7 +3,7 @@ function bow_image_classification
 run('vlfeat-0.9.20/toolbox/vl_setup');
 N = 50;  % sample size per category
 kmeans_image_sample_index = 1:N;
-svm_image_sample_index = N:2*N;
+svm_image_sample_index = N+1:2*N;
 k_means_sample_size = 10000;
 image_data_path = 'Caltech4/ImageData/';
 classes_path = strcat('classes_sample_', num2str(N),'.mat');
@@ -127,6 +127,7 @@ else
     end
     classes = rmfield(classes, 'image_files');
     classes = rmfield(classes, 'image_files_sample');
+    classes = rmfield(classes, 'image_files_test');
     save(classes_path, 'classes');
 end
 
