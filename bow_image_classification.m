@@ -9,10 +9,9 @@ image_data_path = 'Caltech4/ImageData/';
 classes_path = strcat('classes_sample_', num2str(N),'.mat');
 centroids_path = strcat('debug_centroids_sample_', num2str(N),'.mat');
 vocabulary_size = 400;
-color_space = 'd_RGB'; % {'d_RGB';'d_rgb';'d_gray';'d_opponent'}
+color_space = 'd_RGB'; % {'d_RGB';'d_rgb';'d_gray';'d_opponent';'d_RGB_dense';..}
 fast_kmeans = false;
 dense_sift_bin_size = 10;
-
 
 % Check whether SIFT descriptors have already been found for this
 % samplesize
@@ -30,7 +29,7 @@ else
         
         image_files_test = dir(strcat(image_data_path, class_names{current_class}, '_test/'));
         image_files_test = {image_files_test.name};
-        image_files_test(1:3) = []; % remove first junk files
+        image_files_test(1:2) = []; % remove first junk files
         
         % Sample for kmeans and svm
         sample = randsample(image_files, 2*N, false);
@@ -122,28 +121,47 @@ else
             [~, d_RGB.R] = vl_sift(im2single(image_RGB(:,:,1)));
             [~, d_RGB.G] = vl_sift(im2single(image_RGB(:,:,2)));
             [~, d_RGB.B] = vl_sift(im2single(image_RGB(:,:,3)));
+            d_RGB_dense = {};
+            [~, d_RGB_dense.R] = vl_dsift(im2single(image_RGB(:,:,1)), 'size', dense_sift_bin_size);
+            [~, d_RGB_dense.G] = vl_dsift(im2single(image_RGB(:,:,2)), 'size', dense_sift_bin_size);
+            [~, d_RGB_dense.B] = vl_dsift(im2single(image_RGB(:,:,3)), 'size', dense_sift_bin_size);
             
             % rgb
             d_rgb = {};
             [~, d_rgb.R] = vl_sift(im2single(image_rgb(:,:,1)));
             [~, d_rgb.G] = vl_sift(im2single(image_rgb(:,:,2)));
             [~, d_rgb.B] = vl_sift(im2single(image_rgb(:,:,3)));
+            d_rgb_dense = {};
+            [~, d_rgb_dense.R] = vl_dsift(im2single(image_rgb(:,:,1)), 'size', dense_sift_bin_size);
+            [~, d_rgb_dense.G] = vl_dsift(im2single(image_rgb(:,:,2)), 'size', dense_sift_bin_size);
+            [~, d_rgb_dense.B] = vl_dsift(im2single(image_rgb(:,:,3)), 'size', dense_sift_bin_size);
             
             % gray
             d_gray = {};
             [~, d_gray.gray] = vl_sift(im2single(image_gray));
+            d_gray_dense = {};
+            [~, d_gray_dense.gray] = vl_dsift(im2single(image_gray), 'size', dense_sift_bin_size);
             
             % opponent
             d_opponent = {};
             [~, d_opponent.R] = vl_sift(im2single(image_opponent(:,:,1)));
             [~, d_opponent.G] = vl_sift(im2single(image_opponent(:,:,2)));
             [~, d_opponent.B] = vl_sift(im2single(image_opponent(:,:,3)));
+            d_opponent_dense = {};
+            [~, d_opponent_dense.R] = vl_dsift(im2single(image_opponent(:,:,1)), 'size', dense_sift_bin_size);
+            [~, d_opponent_dense.G] = vl_dsift(im2single(image_opponent(:,:,2)), 'size', dense_sift_bin_size);
+            [~, d_opponent_dense.B] = vl_dsift(im2single(image_opponent(:,:,3)), 'size', dense_sift_bin_size);
+            
             
             % add descriptors to the data model
-            classes(current_class).images_test(i).d_RGB = d_RGB;
-            classes(current_class).images_test(i).d_rgb = d_rgb;
-            classes(current_class).images_test(i).d_gray = d_gray;
-            classes(current_class).images_test(i).d_opponent = d_opponent;
+            classes(current_class).image_test(i).d_RGB = d_RGB;
+            classes(current_class).image_test(i).d_RGB_dense = d_RGB_dense;
+            classes(current_class).image_test(i).d_rgb = d_rgb;
+            classes(current_class).image_test(i).d_rgb_dense = d_rgb_dense;
+            classes(current_class).image_test(i).d_gray = d_gray;
+            classes(current_class).image_test(i).d_gray_dense = d_gray_dense;
+            classes(current_class).image_test(i).d_opponent = d_opponent;
+            classes(current_class).image_test(i).d_opponent_dense = d_opponent_dense;
         end
     end
     classes = rmfield(classes, 'image_files');
