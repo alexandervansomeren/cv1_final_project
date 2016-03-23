@@ -141,7 +141,7 @@ else
             [~, d_gray.gray] = vl_sift(im2single(image_gray));
             d_gray_dense = {};
             tic;
-            [~, d_gray_dense.gray] = vl_dsift(im2single(image_gray), 'size', dense_sift_bin_size);
+            [~, d_gray_dense.gray] = vl_dsift(im2single(image_gray), 'step', dense_sift_step_size);
             toc;
             
             % opponent
