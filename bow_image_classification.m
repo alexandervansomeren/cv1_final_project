@@ -10,6 +10,8 @@ classes_path = strcat('classes_sample_', num2str(N),'.mat');
 centroids_path = strcat('debug_centroids_sample_', num2str(N),'.mat');
 vocabulary_size = 400;
 color_space = 'd_RGB'; % {'d_RGB';'d_rgb';'d_gray';'d_opponent'}
+fast_kmeans = false;
+dense_sift_bin_size = 10;
 
 
 % Check whether SIFT descriptors have already been found for this
@@ -46,7 +48,7 @@ else
         for i = 1:length(classes(current_class).image_files_sample)
             im_path = strcat(image_data_path, ...
                 class_names{current_class},'_train/', ...
-                classes(current_class).image_files_sample{i});  
+                classes(current_class).image_files_sample{i});
             image_RGB = imread(im_path);
             image_rgb = RGB2rgb(image_RGB);
             image_gray = rgb2gray(image_RGB);
@@ -60,28 +62,47 @@ else
             [~, d_RGB.R] = vl_sift(im2single(image_RGB(:,:,1)));
             [~, d_RGB.G] = vl_sift(im2single(image_RGB(:,:,2)));
             [~, d_RGB.B] = vl_sift(im2single(image_RGB(:,:,3)));
+            d_RGB_dense = {};
+            [~, d_RGB_dense.R] = vl_dsift(im2single(image_RGB(:,:,1)), 'size', dense_sift_bin_size);
+            [~, d_RGB_dense.G] = vl_dsift(im2single(image_RGB(:,:,2)), 'size', dense_sift_bin_size);
+            [~, d_RGB_dense.B] = vl_dsift(im2single(image_RGB(:,:,3)), 'size', dense_sift_bin_size);
             
             % rgb
             d_rgb = {};
             [~, d_rgb.R] = vl_sift(im2single(image_rgb(:,:,1)));
             [~, d_rgb.G] = vl_sift(im2single(image_rgb(:,:,2)));
             [~, d_rgb.B] = vl_sift(im2single(image_rgb(:,:,3)));
+            d_rgb_dense = {};
+            [~, d_rgb_dense.R] = vl_dsift(im2single(image_rgb(:,:,1)), 'size', dense_sift_bin_size);
+            [~, d_rgb_dense.G] = vl_dsift(im2single(image_rgb(:,:,2)), 'size', dense_sift_bin_size);
+            [~, d_rgb_dense.B] = vl_dsift(im2single(image_rgb(:,:,3)), 'size', dense_sift_bin_size);
             
             % gray
             d_gray = {};
             [~, d_gray.gray] = vl_sift(im2single(image_gray));
+            d_gray_dense = {};
+            [~, d_gray_dense.gray] = vl_dsift(im2single(image_gray), 'size', dense_sift_bin_size);
             
             % opponent
             d_opponent = {};
             [~, d_opponent.R] = vl_sift(im2single(image_opponent(:,:,1)));
             [~, d_opponent.G] = vl_sift(im2single(image_opponent(:,:,2)));
             [~, d_opponent.B] = vl_sift(im2single(image_opponent(:,:,3)));
+            d_opponent_dense = {};
+            [~, d_opponent_dense.R] = vl_dsift(im2single(image_opponent(:,:,1)), 'size', dense_sift_bin_size);
+            [~, d_opponent_dense.G] = vl_dsift(im2single(image_opponent(:,:,2)), 'size', dense_sift_bin_size);
+            [~, d_opponent_dense.B] = vl_dsift(im2single(image_opponent(:,:,3)), 'size', dense_sift_bin_size);
+            
             
             % add descriptors to the data model
             classes(current_class).image_samples(i).d_RGB = d_RGB;
+            classes(current_class).image_samples(i).d_RGB_dense = d_RGB_dense;
             classes(current_class).image_samples(i).d_rgb = d_rgb;
+            classes(current_class).image_samples(i).d_rgb_dense = d_rgb_dense;
             classes(current_class).image_samples(i).d_gray = d_gray;
+            classes(current_class).image_samples(i).d_gray_dense = d_gray_dense;
             classes(current_class).image_samples(i).d_opponent = d_opponent;
+            classes(current_class).image_samples(i).d_opponent_dense = d_opponent_dense;
         end
         classes(current_class).images_test = struct([]);
         for i = 1:length(classes(current_class).image_files_test)
@@ -171,6 +192,8 @@ some_descriptors = datasample(all_descriptors,k_means_sample_size,...
 
 if exist(centroids_path, 'file')
     load(centroids_path);
+elseif (fast_kmeans)
+    [~, centroids, ~] = fkmeans(all_descriptors, vocabulary_size);
 else
     % Run parallel k means
     pool = parpool;                      % Invokes workers
@@ -178,9 +201,9 @@ else
     options = statset('UseParallel',1,'UseSubstreams',1,...
         'Streams',stream);
     
-    [~, centroids] = kmeans(some_descriptors, vocabulary_size, 'Options', options); % , 'MaxIter', 250
+    [~, centroids] = kmeans(all_descriptors, vocabulary_size, 'Options', options); % , 'MaxIter', 250
     delete(gcp('nocreate')); % quit parallel pool
-    save(centroids_path, 'centroids', 'idx');
+    save(centroids_path, 'centroids');
 end
 
 %% Quantize Features Using Visual Vocabulary
@@ -222,9 +245,9 @@ for current_class_svm = 1:length(classes)
         else
             c = 2;
         end
-        for i = 1:length(classes(current_class).image_samples(1:N)) % images
+        for i = 1:length(classes(current_class).image_samples(svm_image_sample_index)) % images
             svm_train_data(d_index,1:vocabulary_size) = ...
-               array2table(classes(current_class).image_samples(i).histogram);
+                array2table(classes(current_class).image_samples(i).histogram);
             svm_train_data(d_index,vocabulary_size+1) = {c};
             d_index = d_index + 1;
         end
@@ -235,9 +258,26 @@ end
 save('debug_svm_models.mat', 'classes');
 
 %% Evaluation
-% for current_class = 1:length(classes)
-%     [label,Score] = classes(current_class).svm_model.Methods.predict(
-% end
+for eval_class = 1:length(classes)
+    hists_to_predict = zeros(length(classes(current_class).images_test)* ...
+                                length(classes), vocabulary_size);
+    for current_class = 1:length(classes)
+        for i = 1:length(classes(current_class).images_test)  % images
+            image_descriptors = cell([1 length(spaces)*3]);
+            for j = 1:length(spaces);
+                channels = fieldnames(classes(current_class).images_test(i).(spaces{j}));
+                for k = 1:length(channels)
+                    descriptor = ...
+                        classes(current_class).image_samples(i).(spaces{j}).(channels{k});
+                    image_descriptors{d} = descriptor;
+                end
+            end
+            image_descriptors = image_descriptors(~cellfun('isempty', image_descriptors));
+            hists_to_predict(i,:) = getHistFromDescriptor(double(cell2mat(image_descriptors)'), centroids);
+        end
+    end
+    [label,Score] = classes(eval_class).svm_model.Methods.predict(hists_to_predict);
+end
 
 end
 
