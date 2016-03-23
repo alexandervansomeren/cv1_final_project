@@ -11,7 +11,7 @@ centroids_path = strcat('debug_centroids_sample_', num2str(N),'.mat');
 vocabulary_size = 400;
 color_space = 'd_RGB'; % {'d_RGB';'d_rgb';'d_gray';'d_opponent';'d_RGB_dense';..}
 fast_kmeans = false;
-dense_sift_bin_size = 15;
+dense_sift_step_size = 15;
 
 % Check whether SIFT descriptors have already been found for this
 % samplesize
@@ -80,7 +80,7 @@ else
             d_gray = {};
             [~, d_gray.gray] = vl_sift(im2single(image_gray));
             d_gray_dense = {};
-            [~, d_gray_dense.gray] = vl_dsift(im2single(image_gray), 'size', dense_sift_bin_size);
+            [~, d_gray_dense.gray] = vl_dsift(im2single(image_gray), 'step', dense_sift_step_size);
             
             % opponent
             d_opponent = {};
